@@ -93,7 +93,7 @@ services:
       _AIRFLOW_WWW_USER_ROLE: ${_AIRFLOW_WWW_USER_ROLE}
     volumes:
       - ./dags:/opt/airflow/dags
-      - ./scripts:/opt/airflow/scripts
+      - ./ETLScripts:/opt/airflow/scripts
       - ./requirements.txt:/opt/airflow/requirements.txt
       - airflow_data:/opt/airflow/data
     ports:
