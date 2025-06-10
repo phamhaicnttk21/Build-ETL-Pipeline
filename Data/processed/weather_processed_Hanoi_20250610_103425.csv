@@ -1,0 +1,2 @@
+city,latitude,longitude,main_weather,description,temp,feels_like,temp_min,temp_max,pressure,humidity,visibility,wind_speed,wind_deg,clouds_all,data_time,sunrise,sunset,record_ingestion_time,rain_1h,snow_1h
+Hanoi,21.0245,105.8412,Rain,light rain,27,30.74,27,27,1007,90,10000,3.69,357,100,2025-06-10 03:14:13+00:00,2025-06-09 22:14:40+00:00,2025-06-10 11:37:38+00:00,2025-06-10 03:34:25.105229+00:00,0.67,
