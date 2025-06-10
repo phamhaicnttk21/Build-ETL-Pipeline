@@ -1,14 +1,18 @@
 version: '3.8'
 
+# Loại bỏ dòng "env_file:" ở đây
+
 services:
+  # --- PostgreSQL Database Service ---
   postgres:
     image: postgres:13
+    container_name: airflow_postgres_db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5433:5432"  # ✅ Đổi cổng host từ 5432 sang 5433
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -16,25 +20,31 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - airflow_network
 
+  # --- pgAdmin Service ---
   pgadmin:
     image: dpage/pgadmin4
+    container_name: airflow_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "8080:80"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    networks:
+      - airflow_network
 
+  # --- Airflow Scheduler Service ---
   airflow-scheduler:
     image: apache/airflow:2.9.2-python3.9
     container_name: airflow_scheduler
     restart: always
     environment:
-      AIRFLOW_DATABASE_CONN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      AIRFLOW_WEBSERVER_HOST: 0.0.0.0
-      AIRFLOW_WEBSERVER_PORT: 8080
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       AIRFLOW_HOME: /opt/airflow
       AIRFLOW_UID: ${AIRFLOW_UID}
       _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS}
@@ -43,10 +53,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_PORT: 5432
     volumes:
       - ./dags:/opt/airflow/dags
-      - ./scripts:/opt/airflow/scripts
+      - ./ETLScripts:/opt/airflow/scripts
       - ./requirements.txt:/opt/airflow/requirements.txt
       - airflow_data:/opt/airflow/data
     depends_on:
@@ -54,22 +64,31 @@ services:
         condition: service_healthy
     command: scheduler
     healthcheck:
-      test: ["CMD", "airflow", "tasks", "test", "example_dag_id", "example_task_id", "2025-06-10"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
+      test: ["CMD", "airflow", "db", "check"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - airflow_network
 
+  # --- Airflow Webserver Service ---
   airflow-webserver:
     image: apache/airflow:2.9.2-python3.9
     container_name: airflow_webserver
     restart: always
     environment:
-      AIRFLOW_DATABASE_CONN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       AIRFLOW_WEBSERVER_HOST: 0.0.0.0
       AIRFLOW_WEBSERVER_PORT: 8080
       AIRFLOW_HOME: /opt/airflow
       AIRFLOW_UID: ${AIRFLOW_UID}
       _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS}
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD}
+      _AIRFLOW_WWW_USER_FIRSTNAME: ${_AIRFLOW_WWW_USER_FIRSTNAME}
+      _AIRFLOW_WWW_USER_LASTNAME: ${_AIRFLOW_WWW_USER_LASTNAME}
+      _AIRFLOW_WWW_USER_EMAIL: ${_AIRFLOW_WWW_USER_EMAIL}
+      _AIRFLOW_WWW_USER_ROLE: ${_AIRFLOW_WWW_USER_ROLE}
     volumes:
       - ./dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
@@ -86,7 +105,15 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+    networks:
+      - airflow_network
 
+# --- Docker Volumes ---
 volumes:
   pgdata:
   airflow_data:
+
+# --- Docker Networks ---
+networks:
+  airflow_network:
+    driver: bridge
